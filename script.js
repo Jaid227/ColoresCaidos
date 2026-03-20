@@ -9,6 +9,8 @@ const colorCountInput = document.getElementById('colorCount');
 const colorCountValue = document.getElementById('colorCountValue');
 const speedInput = document.getElementById('speed');
 const speedValue = document.getElementById('speedValue');
+const livesInput = document.getElementById('livesCount');
+const livesValue = document.getElementById('livesValueDisplay');
 
 // Mapeo de colores
 const keyColorMap = {
@@ -25,7 +27,8 @@ const HIT_ZONE_HEIGHT = 100;
 
 // Estado del juego
 let score = 0;
-let lives = 10;
+let lives = 10; // Valor por defecto, se actualizará con el slider
+let maxLives = 10;
 let gameActive = true;
 let totalColorsSpawned = 0;
 let maxColors = 50;
@@ -39,19 +42,10 @@ const BASE_SPAWN_RATE = 600; // ms base para velocidad 2.2
 
 // ---------- CALCULAR SPAWN RATE SEGÚN VELOCIDAD ----------
 function calculateSpawnRate(speed) {
-    // A velocidad 2.2 (default) -> 600ms
-    // A velocidad más rápida -> menor tiempo (más frecuente)
-    // A velocidad más lenta -> mayor tiempo (menos frecuente)
-    
-    // Fórmula: 600ms * (2.2 / velocidad)
-    // Así se mantiene proporcional
     const baseSpeed = 2.2;
     const baseRate = 600;
     
-    // Limitar para que no sea extremo
     let newRate = baseRate * (baseSpeed / speed);
-    
-    // Limitar entre 300ms y 2000ms para que no sea ni muy rápido ni muy lento
     newRate = Math.max(300, Math.min(2000, newRate));
     
     return Math.round(newRate);
@@ -59,45 +53,58 @@ function calculateSpawnRate(speed) {
 
 // ---------- INICIALIZAR CONTROLES ----------
 function initControls() {
+    // Control de cantidad de colores
     colorCountInput.addEventListener('input', (e) => {
         const val = e.target.value;
         colorCountValue.textContent = val;
         maxColors = parseInt(val);
     });
 
+    // Control de velocidad
     speedInput.addEventListener('input', (e) => {
         const val = parseFloat(e.target.value).toFixed(1);
         speedValue.textContent = val;
         
         const newSpeed = parseFloat(val);
         
-        // Actualizar velocidad de todas las notas existentes
         notes.forEach(note => {
             note.speed = newSpeed;
         });
         
-        // Reajustar el intervalo de spawn si el juego está activo
-        if (gameActive) {
-            // Limpiar intervalo actual
-            if (spawnInterval) {
-                clearInterval(spawnInterval);
-            }
-            
-            // Crear nuevo intervalo con la velocidad ajustada
+        if (gameActive && spawnInterval) {
+            clearInterval(spawnInterval);
             const newSpawnRate = calculateSpawnRate(newSpeed);
             spawnInterval = setInterval(() => spawnNote(newSpeed), newSpawnRate);
         }
     });
 
+    // Control de vidas
+    livesInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        livesValue.textContent = val;
+        maxLives = parseInt(val);
+        
+        // Si el juego está activo, actualizar vidas actuales también
+        if (gameActive) {
+            lives = maxLives;
+            updateInfo();
+        }
+    });
+
+    // Valores iniciales
     colorCountValue.textContent = colorCountInput.value;
     speedValue.textContent = speedInput.value;
+    livesValue.textContent = livesInput.value;
+    
     maxColors = parseInt(colorCountInput.value);
+    maxLives = parseInt(livesInput.value);
+    lives = maxLives;
 }
 
 // ---------- INICIALIZAR ----------
 function initGame() {
     score = 0;
-    lives = 10;
+    lives = maxLives; // Usar el valor seleccionado
     notes = [];
     gameActive = true;
     totalColorsSpawned = 0;
@@ -161,7 +168,7 @@ function updateInfo() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Información de progreso y velocidad
+    // Información de progreso
     ctx.font = 'bold 14px monospace';
     ctx.fillStyle = '#ffffffaa';
     ctx.fillText(`Colores: ${totalColorsSpawned}/${maxColors}`, 10, 25);
@@ -169,8 +176,12 @@ function draw() {
     const currentSpeed = parseFloat(speedInput.value).toFixed(1);
     const spawnRate = calculateSpawnRate(parseFloat(speedInput.value));
     ctx.fillText(`Vel: ${currentSpeed} | Ritmo: ${spawnRate}ms`, 10, 45);
+    
+    // Mostrar vidas restantes / total
+    ctx.fillStyle = lives > maxLives * 0.3 ? '#aaffaa' : '#ffaa88';
+    ctx.fillText(`Vidas: ${lives}/${maxLives}`, 10, 65);
 
-    // ZONA DE ACIERTO MUY VISIBLE
+    // ZONA DE ACIERTO
     ctx.fillStyle = '#ffffff40';
     ctx.fillRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
     ctx.strokeStyle = '#ffffffff';
@@ -237,7 +248,7 @@ function update() {
     }
 }
 
-// ---------- DETECCIÓN TÁCTIL INSTANTÁNEA ----------
+// ---------- DETECCIÓN TÁCTIL ----------
 function handleTouchStart(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -333,7 +344,6 @@ function restartGame() {
 }
 
 // ---------- EVENTOS TÁCTILES ----------
-canvas.removeEventListener('touchstart', handleTouchStart);
 canvas.addEventListener('touchstart', handleTouchStart, { 
     passive: false,
     capture: true
