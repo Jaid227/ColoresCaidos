@@ -13,9 +13,9 @@ const keyColorMap = {
 };
 const keys = ['c', 'v', 'b', 'n'];
 
-// Zona de acierto (píxeles desde abajo)
-const HIT_ZONE_Y = canvas.height - 80;
-const HIT_ZONE_HEIGHT = 25;
+// ZONA DE ACIERTO MÁS GRANDE
+const HIT_ZONE_Y = canvas.height - 100;  // Empieza más arriba
+const HIT_ZONE_HEIGHT = 60;              // Mucho más alta (antes era 25)
 
 // Estado del juego
 let score = 0;
@@ -69,16 +69,20 @@ function updateInfo() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Zona de acierto
-    ctx.fillStyle = '#ffffff20';
+    // ZONA DE ACIERTO MÁS VISIBLE Y GRANDE
+    ctx.fillStyle = '#ffffff30'; // Un poco más visible
     ctx.fillRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
-    ctx.strokeStyle = '#f0f0f0aa';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#f0f0f0ff';
+    ctx.lineWidth = 3;
     ctx.strokeRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
     
-    ctx.font = 'bold 12px monospace';
-    ctx.fillStyle = '#ddd';
-    ctx.fillText('¡TOCA AQUÍ!', 10, HIT_ZONE_Y - 6);
+    // Texto más grande y llamativo
+    ctx.font = 'bold 16px monospace';
+    ctx.fillStyle = 'white';
+    ctx.shadowColor = 'black';
+    ctx.shadowBlur = 8;
+    ctx.fillText('¡TOCA AQUÍ!', 20, HIT_ZONE_Y + 35);
+    ctx.shadowBlur = 0;
 
     // Dibujar notas
     notes.forEach(note => {
@@ -131,32 +135,28 @@ function update() {
     }
 }
 
-// ---------- DETECTAR TOQUE INSTANTÁNEO (VERSIÓN MEJORADA PARA MÓVIL) ----------
+// ---------- DETECTAR TOQUE INSTANTÁNEO ----------
 function handleTouch(e) {
-    e.preventDefault(); // IMPORTANTE: evita scroll y zoom
+    e.preventDefault();
     
     if (!gameActive) return;
 
-    // Obtener el toque principal
     const touch = e.touches[0];
     if (!touch) return;
 
     const rect = canvas.getBoundingClientRect();
     
-    // Calcular posición relativa al canvas en píxeles originales
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     
-    // Coordenadas del toque dentro del canvas (resolución real)
     const touchX = (touch.clientX - rect.left) * scaleX;
     const touchY = (touch.clientY - rect.top) * scaleY;
 
-    // Verificar si el toque está dentro del canvas
     if (touchX < 0 || touchX > canvas.width || touchY < 0 || touchY > canvas.height) return;
 
     let hit = false;
 
-    // Recorrer notas de atrás hacia adelante (para tocar la más reciente si hay superposición)
+    // Recorrer notas
     for (let i = notes.length - 1; i >= 0; i--) {
         const note = notes[i];
         if (!note.active) continue;
@@ -167,27 +167,26 @@ function handleTouch(e) {
             touchY >= note.y && 
             touchY <= note.y + note.height) {
             
-            // Verificar que la nota esté en la zona de acierto
+            // Verificar que la nota esté en la ZONA GRANDE de acierto
             const noteBottom = note.y + note.height;
             const noteTop = note.y;
 
             if (noteBottom >= HIT_ZONE_Y && noteTop <= HIT_ZONE_Y + HIT_ZONE_HEIGHT) {
-                // ¡ACERTÓ! +10 puntos y eliminar nota
+                // ¡ACERTÓ!
                 score += 10;
                 notes.splice(i, 1);
                 hit = true;
 
-                // Feedback visual
                 canvas.style.boxShadow = '0 0 30px lime';
                 setTimeout(() => canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black', 150);
 
                 updateInfo();
-                break; // Solo una nota por toque
+                break;
             }
         }
     }
 
-    // Si no acertó en ninguna nota (tocó zona vacía)
+    // Si no acertó en ninguna nota
     if (!hit) {
         score = Math.max(0, score - 5);
         canvas.style.boxShadow = '0 0 30px red';
@@ -195,7 +194,6 @@ function handleTouch(e) {
         updateInfo();
     }
 
-    // Verificar game over
     if (lives <= 0) gameOver();
 }
 
@@ -220,16 +218,13 @@ function restartGame() {
     initGame();
 }
 
-// ---------- EVENTOS TÁCTILES (SOLO MÓVIL) ----------
-// Eliminamos el evento click para que sea 100% táctil
+// ---------- EVENTOS TÁCTILES ----------
 canvas.addEventListener('touchstart', handleTouch, { passive: false });
-
-// Prevenir gestos mientras se juega
 canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 canvas.addEventListener('touchend', (e) => e.preventDefault());
 canvas.addEventListener('touchcancel', (e) => e.preventDefault());
 
-// Botón reiniciar (también táctil)
+// Botón reiniciar
 document.getElementById('restartButton').addEventListener('click', restartGame);
 document.getElementById('restartButton').addEventListener('touchstart', (e) => {
     e.preventDefault();
