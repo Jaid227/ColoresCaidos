@@ -195,3 +195,25 @@ canvas:hover {
     .info-panel { padding: 10px 16px; }
     .controls-panel { padding: 15px; }
 }
+
+
+
+/* Añadir al final del archivo style.css existente */
+
+.controls-panel {
+    max-height: 300px;
+    overflow-y: auto; /* Por si hay muchos controles */
+}
+
+.control-item {
+    margin-bottom: 20px;
+    padding: 5px 0;
+}
+
+/* Mejorar visibilidad del selector de vidas */
+#livesValueDisplay {
+    background: #ff6b6b;
+    color: white;
+    padding: 2px 10px;
+    border-radius: 20px;
+}
