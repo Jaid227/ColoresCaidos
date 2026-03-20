@@ -4,6 +4,12 @@ const ctx = canvas.getContext('2d');
 const scoreSpan = document.getElementById('scoreValue');
 const livesSpan = document.getElementById('livesValue');
 
+// Elementos de control
+const colorCountInput = document.getElementById('colorCount');
+const colorCountValue = document.getElementById('colorCountValue');
+const speedInput = document.getElementById('speed');
+const speedValue = document.getElementById('speedValue');
+
 // Mapeo de colores
 const keyColorMap = {
     'c': '#FF4D4D', // rojo
@@ -21,13 +27,72 @@ const HIT_ZONE_HEIGHT = 100;
 let score = 0;
 let lives = 10;
 let gameActive = true;
+let totalColorsSpawned = 0;
+let maxColors = 50;
 
 // Notas activas
 let notes = [];
 
 // Generación de notas
 let spawnInterval;
-const SPAWN_RATE = 600; // ms
+const BASE_SPAWN_RATE = 600; // ms base para velocidad 2.2
+
+// ---------- CALCULAR SPAWN RATE SEGÚN VELOCIDAD ----------
+function calculateSpawnRate(speed) {
+    // A velocidad 2.2 (default) -> 600ms
+    // A velocidad más rápida -> menor tiempo (más frecuente)
+    // A velocidad más lenta -> mayor tiempo (menos frecuente)
+    
+    // Fórmula: 600ms * (2.2 / velocidad)
+    // Así se mantiene proporcional
+    const baseSpeed = 2.2;
+    const baseRate = 600;
+    
+    // Limitar para que no sea extremo
+    let newRate = baseRate * (baseSpeed / speed);
+    
+    // Limitar entre 300ms y 2000ms para que no sea ni muy rápido ni muy lento
+    newRate = Math.max(300, Math.min(2000, newRate));
+    
+    return Math.round(newRate);
+}
+
+// ---------- INICIALIZAR CONTROLES ----------
+function initControls() {
+    colorCountInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        colorCountValue.textContent = val;
+        maxColors = parseInt(val);
+    });
+
+    speedInput.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value).toFixed(1);
+        speedValue.textContent = val;
+        
+        const newSpeed = parseFloat(val);
+        
+        // Actualizar velocidad de todas las notas existentes
+        notes.forEach(note => {
+            note.speed = newSpeed;
+        });
+        
+        // Reajustar el intervalo de spawn si el juego está activo
+        if (gameActive) {
+            // Limpiar intervalo actual
+            if (spawnInterval) {
+                clearInterval(spawnInterval);
+            }
+            
+            // Crear nuevo intervalo con la velocidad ajustada
+            const newSpawnRate = calculateSpawnRate(newSpeed);
+            spawnInterval = setInterval(() => spawnNote(newSpeed), newSpawnRate);
+        }
+    });
+
+    colorCountValue.textContent = colorCountInput.value;
+    speedValue.textContent = speedInput.value;
+    maxColors = parseInt(colorCountInput.value);
+}
 
 // ---------- INICIALIZAR ----------
 function initGame() {
@@ -35,27 +100,55 @@ function initGame() {
     lives = 10;
     notes = [];
     gameActive = true;
+    totalColorsSpawned = 0;
     updateInfo();
 
     if (spawnInterval) clearInterval(spawnInterval);
-    spawnInterval = setInterval(spawnNote, SPAWN_RATE);
-
-    setTimeout(() => { if (gameActive) spawnNote(); }, 100);
-    setTimeout(() => { if (gameActive) spawnNote(); }, 300);
+    
+    const currentSpeed = parseFloat(speedInput.value);
+    const spawnRate = calculateSpawnRate(currentSpeed);
+    
+    spawnInterval = setInterval(() => spawnNote(currentSpeed), spawnRate);
 }
 
-// Crear nueva nota
-function spawnNote() {
+// Crear nueva nota con velocidad específica
+function spawnNote(currentSpeed) {
     if (!gameActive) return;
+    
+    if (totalColorsSpawned >= maxColors) {
+        if (notes.length === 0) {
+            gameVictory();
+        }
+        return;
+    }
 
     const randomKey = keys[Math.floor(Math.random() * keys.length)];
     notes.push({
         key: randomKey,
         color: keyColorMap[randomKey],
         y: 30,
-        speed: 2.2,
+        speed: currentSpeed,
         active: true,
     });
+    
+    totalColorsSpawned++;
+}
+
+// ---------- VICTORIA ----------
+function gameVictory() {
+    gameActive = false;
+    clearInterval(spawnInterval);
+
+    ctx.fillStyle = '#000000aa';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = 'bold 32px sans-serif';
+    ctx.fillStyle = 'gold';
+    ctx.shadowColor = 'orange';
+    ctx.shadowBlur = 15;
+    ctx.fillText('¡VICTORIA!', 40, canvas.height / 2);
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('Puntuación: ' + score, 80, canvas.height / 2 + 50);
+    ctx.shadowBlur = 0;
 }
 
 // Actualizar UI
@@ -68,8 +161,17 @@ function updateInfo() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Información de progreso y velocidad
+    ctx.font = 'bold 14px monospace';
+    ctx.fillStyle = '#ffffffaa';
+    ctx.fillText(`Colores: ${totalColorsSpawned}/${maxColors}`, 10, 25);
+    
+    const currentSpeed = parseFloat(speedInput.value).toFixed(1);
+    const spawnRate = calculateSpawnRate(parseFloat(speedInput.value));
+    ctx.fillText(`Vel: ${currentSpeed} | Ritmo: ${spawnRate}ms`, 10, 45);
+
     // ZONA DE ACIERTO MUY VISIBLE
-    ctx.fillStyle = '#ffffff40'; // Más visible
+    ctx.fillStyle = '#ffffff40';
     ctx.fillRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
     ctx.strokeStyle = '#ffffffff';
     ctx.lineWidth = 2;
@@ -95,7 +197,7 @@ function draw() {
         note.width = width;
         note.height = 60;
 
-        const gradient = ctx.createLinearGradient(x, note.y, x + width, note.y + 35);
+        const gradient = ctx.createLinearGradient(x, note.y, x + width, note.y + 60);
         gradient.addColorStop(0, note.color);
         gradient.addColorStop(1, '#ffffff80');
         ctx.fillStyle = gradient;
@@ -129,17 +231,19 @@ function update() {
             }
         }
     }
+    
+    if (gameActive && notes.length === 0 && totalColorsSpawned >= maxColors) {
+        gameVictory();
+    }
 }
 
-// ---------- DETECCIÓN TÁCTIL INSTANTÁNEA (VERSIÓN MEGA RÁPIDA) ----------
+// ---------- DETECCIÓN TÁCTIL INSTANTÁNEA ----------
 function handleTouchStart(e) {
-    // PREVENIR TODO: scroll, zoom, selección, etc.
     e.preventDefault();
     e.stopPropagation();
     
     if (!gameActive) return;
 
-    // Tomar TODOS los toques (por si acaso)
     const touches = e.touches;
     if (!touches || touches.length === 0) return;
 
@@ -147,40 +251,33 @@ function handleTouchStart(e) {
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
 
-    // Procesar CADA toque (por si el usuario usa varios dedos)
     for (let t = 0; t < touches.length; t++) {
         const touch = touches[t];
         
         const touchX = (touch.clientX - rect.left) * scaleX;
         const touchY = (touch.clientY - rect.top) * scaleY;
 
-        // Verificar si el toque está dentro del canvas
         if (touchX < 0 || touchX > canvas.width || touchY < 0 || touchY > canvas.height) continue;
 
         let hit = false;
 
-        // Buscar si tocó alguna nota
         for (let i = notes.length - 1; i >= 0; i--) {
             const note = notes[i];
             if (!note.active) continue;
 
-            // Verificar si el toque está DENTRO del rectángulo de la nota
             if (touchX >= note.x && 
                 touchX <= note.x + note.width &&
                 touchY >= note.y && 
                 touchY <= note.y + note.height) {
                 
-                // Verificar que la nota esté en la zona de acierto
                 const noteBottom = note.y + note.height;
                 const noteTop = note.y;
 
                 if (noteBottom >= HIT_ZONE_Y && noteTop <= HIT_ZONE_Y + HIT_ZONE_HEIGHT) {
-                    // ¡ACERTÓ INSTANTÁNEAMENTE!
                     score += 10;
                     notes.splice(i, 1);
                     hit = true;
 
-                    // Feedback visual INMEDIATO
                     canvas.style.boxShadow = '0 0 40px lime';
                     canvas.style.transition = 'box-shadow 0.05s';
                     setTimeout(() => {
@@ -188,16 +285,14 @@ function handleTouchStart(e) {
                     }, 100);
 
                     updateInfo();
-                    break; // Salir del bucle de notas
+                    break;
                 }
             }
         }
 
-        // Si no acertó en ninguna nota (tocó zona vacía)
         if (!hit) {
             score = Math.max(0, score - 5);
             
-            // Feedback visual INMEDIATO
             canvas.style.boxShadow = '0 0 40px red';
             canvas.style.transition = 'box-shadow 0.05s';
             setTimeout(() => {
@@ -207,7 +302,6 @@ function handleTouchStart(e) {
             updateInfo();
         }
 
-        // Verificar game after each touch
         if (lives <= 0) {
             gameOver();
             break;
@@ -235,19 +329,16 @@ function restartGame() {
     if (spawnInterval) clearInterval(spawnInterval);
     initGame();
     
-    // Resetear sombra
     canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black';
 }
 
-// ---------- EVENTOS TÁCTILES 100% OPTIMIZADOS ----------
-// Eliminar cualquier evento de ratón, SOLO táctil
+// ---------- EVENTOS TÁCTILES ----------
 canvas.removeEventListener('touchstart', handleTouchStart);
 canvas.addEventListener('touchstart', handleTouchStart, { 
-    passive: false,  // Importante: permite prevenir default
-    capture: true    // Capturar antes que otros eventos
+    passive: false,
+    capture: true
 });
 
-// Bloquear ABSOLUTAMENTE todos los demás eventos táctiles que puedan interferir
 canvas.addEventListener('touchmove', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -263,7 +354,6 @@ canvas.addEventListener('touchcancel', (e) => {
     e.stopPropagation();
 }, { passive: false, capture: true });
 
-// Bloquear también eventos de ratón para evitar mezcla
 canvas.addEventListener('click', (e) => {
     e.preventDefault();
     return false;
@@ -274,7 +364,6 @@ canvas.addEventListener('mousedown', (e) => {
     return false;
 });
 
-// Botón reiniciar optimizado para táctil
 const restartBtn = document.getElementById('restartButton');
 restartBtn.addEventListener('touchstart', (e) => {
     e.preventDefault();
@@ -287,7 +376,6 @@ restartBtn.addEventListener('click', (e) => {
     restartGame();
 });
 
-// Prevenir gestos de zoom en toda la página
 document.body.addEventListener('touchmove', (e) => {
     if (e.target === canvas || e.target === restartBtn) {
         e.preventDefault();
@@ -303,6 +391,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Arrancar
+// Inicializar controles y arrancar
+initControls();
 initGame();
 gameLoop();
