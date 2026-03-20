@@ -19,7 +19,7 @@ const HIT_ZONE_HEIGHT = 100;
 
 // Estado del juego
 let score = 0;
-let lives = 5;
+let lives = 10;
 let gameActive = true;
 
 // Notas activas
@@ -32,7 +32,7 @@ const SPAWN_RATE = 600; // ms
 // ---------- INICIALIZAR ----------
 function initGame() {
     score = 0;
-    lives = 5;
+    lives = 10;
     notes = [];
     gameActive = true;
     updateInfo();
