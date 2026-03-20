@@ -13,9 +13,9 @@ const keyColorMap = {
 };
 const keys = ['c', 'v', 'b', 'n'];
 
-// ZONA DE ACIERTO MÁS GRANDE
-const HIT_ZONE_Y = canvas.height - 100;  // Empieza más arriba
-const HIT_ZONE_HEIGHT = 60;              // Mucho más alta (antes era 25)
+// ZONA DE ACIERTO GRANDE
+const HIT_ZONE_Y = canvas.height - 100;
+const HIT_ZONE_HEIGHT = 60;
 
 // Estado del juego
 let score = 0;
@@ -40,7 +40,6 @@ function initGame() {
     if (spawnInterval) clearInterval(spawnInterval);
     spawnInterval = setInterval(spawnNote, SPAWN_RATE);
 
-    // Notas iniciales
     setTimeout(() => { if (gameActive) spawnNote(); }, 100);
     setTimeout(() => { if (gameActive) spawnNote(); }, 300);
 }
@@ -69,19 +68,18 @@ function updateInfo() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // ZONA DE ACIERTO MÁS VISIBLE Y GRANDE
-    ctx.fillStyle = '#ffffff30'; // Un poco más visible
+    // ZONA DE ACIERTO MUY VISIBLE
+    ctx.fillStyle = '#ffffff40'; // Más visible
     ctx.fillRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
-    ctx.strokeStyle = '#f0f0f0ff';
-    ctx.lineWidth = 3;
+    ctx.strokeStyle = '#ffffffff';
+    ctx.lineWidth = 4;
     ctx.strokeRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
     
-    // Texto más grande y llamativo
-    ctx.font = 'bold 16px monospace';
+    ctx.font = 'bold 18px monospace';
     ctx.fillStyle = 'white';
     ctx.shadowColor = 'black';
-    ctx.shadowBlur = 8;
-    ctx.fillText('¡TOCA AQUÍ!', 20, HIT_ZONE_Y + 35);
+    ctx.shadowBlur = 10;
+    ctx.fillText('👆 TOCA AQUÍ 👆', 60, HIT_ZONE_Y + 38);
     ctx.shadowBlur = 0;
 
     // Dibujar notas
@@ -93,7 +91,6 @@ function draw() {
         const x = keyIndex * laneWidth + 5;
         const width = laneWidth - 10;
 
-        // Guardamos coordenadas para detección de toques
         note.x = x;
         note.width = width;
         note.height = 35;
@@ -108,7 +105,7 @@ function draw() {
         ctx.shadowBlur = 0;
 
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = 2;
         ctx.strokeRect(x, note.y, width, 35);
     });
 }
@@ -123,7 +120,6 @@ function update() {
 
         note.y += note.speed;
 
-        // Si pasó la zona sin ser tocada
         if (note.y > canvas.height + 20) {
             notes.splice(i, 1);
             if (gameActive) {
@@ -135,66 +131,88 @@ function update() {
     }
 }
 
-// ---------- DETECTAR TOQUE INSTANTÁNEO ----------
-function handleTouch(e) {
+// ---------- DETECCIÓN TÁCTIL INSTANTÁNEA (VERSIÓN MEGA RÁPIDA) ----------
+function handleTouchStart(e) {
+    // PREVENIR TODO: scroll, zoom, selección, etc.
     e.preventDefault();
+    e.stopPropagation();
     
     if (!gameActive) return;
 
-    const touch = e.touches[0];
-    if (!touch) return;
+    // Tomar TODOS los toques (por si acaso)
+    const touches = e.touches;
+    if (!touches || touches.length === 0) return;
 
     const rect = canvas.getBoundingClientRect();
-    
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-    
-    const touchX = (touch.clientX - rect.left) * scaleX;
-    const touchY = (touch.clientY - rect.top) * scaleY;
 
-    if (touchX < 0 || touchX > canvas.width || touchY < 0 || touchY > canvas.height) return;
+    // Procesar CADA toque (por si el usuario usa varios dedos)
+    for (let t = 0; t < touches.length; t++) {
+        const touch = touches[t];
+        
+        const touchX = (touch.clientX - rect.left) * scaleX;
+        const touchY = (touch.clientY - rect.top) * scaleY;
 
-    let hit = false;
+        // Verificar si el toque está dentro del canvas
+        if (touchX < 0 || touchX > canvas.width || touchY < 0 || touchY > canvas.height) continue;
 
-    // Recorrer notas
-    for (let i = notes.length - 1; i >= 0; i--) {
-        const note = notes[i];
-        if (!note.active) continue;
+        let hit = false;
 
-        // Verificar si el toque está dentro del rectángulo de la nota
-        if (touchX >= note.x && 
-            touchX <= note.x + note.width &&
-            touchY >= note.y && 
-            touchY <= note.y + note.height) {
-            
-            // Verificar que la nota esté en la ZONA GRANDE de acierto
-            const noteBottom = note.y + note.height;
-            const noteTop = note.y;
+        // Buscar si tocó alguna nota
+        for (let i = notes.length - 1; i >= 0; i--) {
+            const note = notes[i];
+            if (!note.active) continue;
 
-            if (noteBottom >= HIT_ZONE_Y && noteTop <= HIT_ZONE_Y + HIT_ZONE_HEIGHT) {
-                // ¡ACERTÓ!
-                score += 10;
-                notes.splice(i, 1);
-                hit = true;
+            // Verificar si el toque está DENTRO del rectángulo de la nota
+            if (touchX >= note.x && 
+                touchX <= note.x + note.width &&
+                touchY >= note.y && 
+                touchY <= note.y + note.height) {
+                
+                // Verificar que la nota esté en la zona de acierto
+                const noteBottom = note.y + note.height;
+                const noteTop = note.y;
 
-                canvas.style.boxShadow = '0 0 30px lime';
-                setTimeout(() => canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black', 150);
+                if (noteBottom >= HIT_ZONE_Y && noteTop <= HIT_ZONE_Y + HIT_ZONE_HEIGHT) {
+                    // ¡ACERTÓ INSTANTÁNEAMENTE!
+                    score += 10;
+                    notes.splice(i, 1);
+                    hit = true;
 
-                updateInfo();
-                break;
+                    // Feedback visual INMEDIATO
+                    canvas.style.boxShadow = '0 0 40px lime';
+                    canvas.style.transition = 'box-shadow 0.05s';
+                    setTimeout(() => {
+                        canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black';
+                    }, 100);
+
+                    updateInfo();
+                    break; // Salir del bucle de notas
+                }
             }
         }
-    }
 
-    // Si no acertó en ninguna nota
-    if (!hit) {
-        score = Math.max(0, score - 5);
-        canvas.style.boxShadow = '0 0 30px red';
-        setTimeout(() => canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black', 150);
-        updateInfo();
-    }
+        // Si no acertó en ninguna nota (tocó zona vacía)
+        if (!hit) {
+            score = Math.max(0, score - 5);
+            
+            // Feedback visual INMEDIATO
+            canvas.style.boxShadow = '0 0 40px red';
+            canvas.style.transition = 'box-shadow 0.05s';
+            setTimeout(() => {
+                canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black';
+            }, 100);
+            
+            updateInfo();
+        }
 
-    if (lives <= 0) gameOver();
+        // Verificar game after each touch
+        if (lives <= 0) {
+            gameOver();
+            break;
+        }
+    }
 }
 
 // ---------- GAME OVER ----------
@@ -216,20 +234,65 @@ function gameOver() {
 function restartGame() {
     if (spawnInterval) clearInterval(spawnInterval);
     initGame();
+    
+    // Resetear sombra
+    canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black';
 }
 
-// ---------- EVENTOS TÁCTILES ----------
-canvas.addEventListener('touchstart', handleTouch, { passive: false });
-canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
-canvas.addEventListener('touchend', (e) => e.preventDefault());
-canvas.addEventListener('touchcancel', (e) => e.preventDefault());
+// ---------- EVENTOS TÁCTILES 100% OPTIMIZADOS ----------
+// Eliminar cualquier evento de ratón, SOLO táctil
+canvas.removeEventListener('touchstart', handleTouchStart);
+canvas.addEventListener('touchstart', handleTouchStart, { 
+    passive: false,  // Importante: permite prevenir default
+    capture: true    // Capturar antes que otros eventos
+});
 
-// Botón reiniciar
-document.getElementById('restartButton').addEventListener('click', restartGame);
-document.getElementById('restartButton').addEventListener('touchstart', (e) => {
+// Bloquear ABSOLUTAMENTE todos los demás eventos táctiles que puedan interferir
+canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+}, { passive: false, capture: true });
+
+canvas.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+}, { passive: false, capture: true });
+
+canvas.addEventListener('touchcancel', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+}, { passive: false, capture: true });
+
+// Bloquear también eventos de ratón para evitar mezcla
+canvas.addEventListener('click', (e) => {
+    e.preventDefault();
+    return false;
+});
+
+canvas.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    return false;
+});
+
+// Botón reiniciar optimizado para táctil
+const restartBtn = document.getElementById('restartButton');
+restartBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    restartGame();
+}, { passive: false });
+
+restartBtn.addEventListener('click', (e) => {
     e.preventDefault();
     restartGame();
 });
+
+// Prevenir gestos de zoom en toda la página
+document.body.addEventListener('touchmove', (e) => {
+    if (e.target === canvas || e.target === restartBtn) {
+        e.preventDefault();
+    }
+}, { passive: false });
 
 // ---------- BUCLE PRINCIPAL ----------
 function gameLoop() {
