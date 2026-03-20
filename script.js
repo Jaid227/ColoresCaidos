@@ -93,7 +93,7 @@ function draw() {
 
         note.x = x;
         note.width = width;
-        note.height = 35;
+        note.height = 60;
 
         const gradient = ctx.createLinearGradient(x, note.y, x + width, note.y + 35);
         gradient.addColorStop(0, note.color);
@@ -101,12 +101,12 @@ function draw() {
         ctx.fillStyle = gradient;
         ctx.shadowColor = note.color;
         ctx.shadowBlur = 15;
-        ctx.fillRect(x, note.y, width, 35);
+        ctx.fillRect(x, note.y, width, 60);
         ctx.shadowBlur = 0;
 
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 2;
-        ctx.strokeRect(x, note.y, width, 35);
+        ctx.strokeRect(x, note.y, width, 60);
     });
 }
 
