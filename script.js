@@ -1,11 +1,10 @@
-
 // ---------- CONFIGURACIÓN ----------
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreSpan = document.getElementById('scoreValue');
 const livesSpan = document.getElementById('livesValue');
 
-// Mapeo de colores (mismos que antes)
+// Mapeo de colores
 const keyColorMap = {
     'c': '#FF4D4D', // rojo
     'v': '#4DFF4D', // verde
@@ -46,7 +45,7 @@ function initGame() {
     setTimeout(() => { if (gameActive) spawnNote(); }, 300);
 }
 
-// Crear nueva nota (color aleatorio)
+// Crear nueva nota
 function spawnNote() {
     if (!gameActive) return;
 
@@ -57,8 +56,6 @@ function spawnNote() {
         y: 30,
         speed: 2.2,
         active: true,
-        width: (canvas.width / 4) - 10, // ancho aproximado
-        height: 35
     });
 }
 
@@ -79,27 +76,24 @@ function draw() {
     ctx.lineWidth = 2;
     ctx.strokeRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
     
-    // Texto "ZONA"
     ctx.font = 'bold 12px monospace';
     ctx.fillStyle = '#ddd';
-    ctx.fillText('¡CLICK AQUÍ!', 10, HIT_ZONE_Y - 6);
+    ctx.fillText('¡TOCA AQUÍ!', 10, HIT_ZONE_Y - 6);
 
     // Dibujar notas
     notes.forEach(note => {
         if (!note.active) return;
 
-        // Calcular X según carril (c/v/b/n)
         const keyIndex = keys.indexOf(note.key);
         const laneWidth = canvas.width / 4;
         const x = keyIndex * laneWidth + 5;
         const width = laneWidth - 10;
 
-        // Guardamos dimensiones reales para detección de clicks
+        // Guardamos coordenadas para detección de toques
         note.x = x;
         note.width = width;
         note.height = 35;
 
-        // Dibujar rectángulo con brillo
         const gradient = ctx.createLinearGradient(x, note.y, x + width, note.y + 35);
         gradient.addColorStop(0, note.color);
         gradient.addColorStop(1, '#ffffff80');
@@ -109,7 +103,6 @@ function draw() {
         ctx.fillRect(x, note.y, width, 35);
         ctx.shadowBlur = 0;
 
-        // Borde
         ctx.strokeStyle = '#fff';
         ctx.lineWidth = 1.5;
         ctx.strokeRect(x, note.y, width, 35);
@@ -124,10 +117,9 @@ function update() {
         const note = notes[i];
         if (!note.active) continue;
 
-        // Mover hacia abajo
         note.y += note.speed;
 
-        // Si pasó la zona sin ser clickeada
+        // Si pasó la zona sin ser tocada
         if (note.y > canvas.height + 20) {
             notes.splice(i, 1);
             if (gameActive) {
@@ -139,74 +131,71 @@ function update() {
     }
 }
 
-// ---------- DETECTAR CLICK EN COLOR ----------
-function handleCanvasClick(e) {
+// ---------- DETECTAR TOQUE INSTANTÁNEO (VERSIÓN MEJORADA PARA MÓVIL) ----------
+function handleTouch(e) {
+    e.preventDefault(); // IMPORTANTE: evita scroll y zoom
+    
     if (!gameActive) return;
 
-    // Obtener coordenadas del click/tap relativas al canvas
+    // Obtener el toque principal
+    const touch = e.touches[0];
+    if (!touch) return;
+
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;   // escala si el canvas es responsive
+    
+    // Calcular posición relativa al canvas en píxeles originales
+    const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
+    
+    // Coordenadas del toque dentro del canvas (resolución real)
+    const touchX = (touch.clientX - rect.left) * scaleX;
+    const touchY = (touch.clientY - rect.top) * scaleY;
 
-    let clientX, clientY;
+    // Verificar si el toque está dentro del canvas
+    if (touchX < 0 || touchX > canvas.width || touchY < 0 || touchY > canvas.height) return;
 
-    if (e.touches) {
-        // Evento táctil
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-        e.preventDefault(); // evitar scroll
-    } else {
-        // Evento ratón
-        clientX = e.clientX;
-        clientY = e.clientY;
-    }
+    let hit = false;
 
-    // Coordenadas dentro del canvas (en píxeles de resolución)
-    const canvasX = (clientX - rect.left) * scaleX;
-    const canvasY = (clientY - rect.top) * scaleY;
-
-    // Buscar si el click dio sobre alguna nota activa Y que esté en zona de acierto
-    let hitNote = false;
-
+    // Recorrer notas de atrás hacia adelante (para tocar la más reciente si hay superposición)
     for (let i = notes.length - 1; i >= 0; i--) {
         const note = notes[i];
         if (!note.active) continue;
 
-        // Comprobar si el punto está dentro del rectángulo de la nota
-        if (canvasX >= note.x && 
-            canvasX <= note.x + note.width &&
-            canvasY >= note.y && 
-            canvasY <= note.y + note.height) {
+        // Verificar si el toque está dentro del rectángulo de la nota
+        if (touchX >= note.x && 
+            touchX <= note.x + note.width &&
+            touchY >= note.y && 
+            touchY <= note.y + note.height) {
             
-            // Además, la nota debe estar EN la zona de acierto (o cerca)
+            // Verificar que la nota esté en la zona de acierto
             const noteBottom = note.y + note.height;
             const noteTop = note.y;
 
             if (noteBottom >= HIT_ZONE_Y && noteTop <= HIT_ZONE_Y + HIT_ZONE_HEIGHT) {
-                // ¡ACERTÓ!
+                // ¡ACERTÓ! +10 puntos y eliminar nota
                 score += 10;
-                notes.splice(i, 1); // eliminar nota
-                hitNote = true;
+                notes.splice(i, 1);
+                hit = true;
 
                 // Feedback visual
                 canvas.style.boxShadow = '0 0 30px lime';
                 setTimeout(() => canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black', 150);
 
                 updateInfo();
-                break; // solo un acierto por click
+                break; // Solo una nota por toque
             }
         }
     }
 
-    // Si no acertó en ninguna nota (click en zona vacía)
-    if (!hitNote) {
+    // Si no acertó en ninguna nota (tocó zona vacía)
+    if (!hit) {
         score = Math.max(0, score - 5);
         canvas.style.boxShadow = '0 0 30px red';
         setTimeout(() => canvas.style.boxShadow = 'inset 0 0 20px #00000055, 0 10px 20px black', 150);
         updateInfo();
     }
 
-    // Revisar si murió
+    // Verificar game over
     if (lives <= 0) gameOver();
 }
 
@@ -215,7 +204,6 @@ function gameOver() {
     gameActive = false;
     clearInterval(spawnInterval);
 
-    // Mensaje en canvas
     ctx.fillStyle = '#000000aa';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.font = 'bold 32px sans-serif';
@@ -232,14 +220,16 @@ function restartGame() {
     initGame();
 }
 
-// ---------- EVENTOS DE CLICK / TAP ----------
-canvas.addEventListener('click', handleCanvasClick);
-canvas.addEventListener('touchstart', handleCanvasClick, { passive: false });
+// ---------- EVENTOS TÁCTILES (SOLO MÓVIL) ----------
+// Eliminamos el evento click para que sea 100% táctil
+canvas.addEventListener('touchstart', handleTouch, { passive: false });
 
-// Prevenir menú contextual en canvas (opcional)
-canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+// Prevenir gestos mientras se juega
+canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchend', (e) => e.preventDefault());
+canvas.addEventListener('touchcancel', (e) => e.preventDefault());
 
-// Botón reiniciar
+// Botón reiniciar (también táctil)
 document.getElementById('restartButton').addEventListener('click', restartGame);
 document.getElementById('restartButton').addEventListener('touchstart', (e) => {
     e.preventDefault();
@@ -258,5 +248,3 @@ function gameLoop() {
 // Arrancar
 initGame();
 gameLoop();
-
-// Ajuste responsive (ya está)
