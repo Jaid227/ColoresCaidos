@@ -15,7 +15,7 @@ const keys = ['c', 'v', 'b', 'n'];
 
 // ZONA DE ACIERTO GRANDE
 const HIT_ZONE_Y = canvas.height - 100;
-const HIT_ZONE_HEIGHT = 60;
+const HIT_ZONE_HEIGHT = 100;
 
 // Estado del juego
 let score = 0;
@@ -72,7 +72,7 @@ function draw() {
     ctx.fillStyle = '#ffffff40'; // Más visible
     ctx.fillRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
     ctx.strokeStyle = '#ffffffff';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 2;
     ctx.strokeRect(0, HIT_ZONE_Y, canvas.width, HIT_ZONE_HEIGHT);
     
     ctx.font = 'bold 18px monospace';
